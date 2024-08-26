@@ -1,0 +1,11 @@
+/.vs
+/EnviBad.ReportMaker.Common/obj
+/EnviBad.ReportMaker.Common/bin
+/EnviBad.ReportMaker.Core/obj
+/EnviBad.ReportMaker.Core/bin
+/EnviBad.ReportMaker.Infrastructure/obj
+/EnviBad.ReportMaker.Infrastructure/bin
+/EnviBad.ReportMaker.Tests/obj
+/EnviBad.ReportMaker.Tests/bin
+/EnviBad.ReportMaker.Worker/obj
+/EnviBad.ReportMaker.Worker/bin
