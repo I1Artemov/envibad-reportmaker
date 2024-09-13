@@ -22,6 +22,7 @@ namespace EnviBad.ReportMaker.Worker
             ServiceCollection services = new ServiceCollection();
             services.Configure<EnviBadApiConnectionOptions>(config.GetSection("EnviBadApiConnection"));
             services.AddTransient<IEnviBadApiExchanger, EnviBadApiExchanger>();
+            services.AddHttpClient();
             ServiceProvider serviceProvider = services.BuildServiceProvider();
 
             var rabbitSettings = config.GetSection("MassTransitOptions").Get<MassTransitOptions>();
