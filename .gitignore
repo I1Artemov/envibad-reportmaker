@@ -9,3 +9,4 @@
 /EnviBad.ReportMaker.Tests/bin
 /EnviBad.ReportMaker.Worker/obj
 /EnviBad.ReportMaker.Worker/bin
+/EnviBad.ReportMaker.Worker/appsettings.json
