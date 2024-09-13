@@ -1,7 +1,11 @@
 ﻿using EnviBad.ReportMaker.Common.Models.Options;
 using EnviBad.ReportMaker.Core.MqConsumers;
+using EnviBad.ReportMaker.Infrastructure.Interfaces;
+using EnviBad.ReportMaker.Infrastructure.MicroserviceExchangers;
 using MassTransit;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace EnviBad.ReportMaker.Worker
 {
@@ -13,8 +17,12 @@ namespace EnviBad.ReportMaker.Worker
             var builder = new ConfigurationBuilder()
                 .SetBasePath(Directory.GetCurrentDirectory())
                 .AddJsonFile("appsettings.json", optional: false);
-
             IConfiguration config = builder.Build();
+
+            ServiceCollection services = new ServiceCollection();
+            services.Configure<EnviBadApiConnectionOptions>(config.GetSection("EnviBadApiConnection"));
+            services.AddTransient<IEnviBadApiExchanger, EnviBadApiExchanger>();
+            ServiceProvider serviceProvider = services.BuildServiceProvider();
 
             var rabbitSettings = config.GetSection("MassTransitOptions").Get<MassTransitOptions>();
             IBusControl busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
@@ -28,9 +36,12 @@ namespace EnviBad.ReportMaker.Worker
 
                 cfg.ReceiveEndpoint("report-request-created-event", e =>
                 {
-                    e.Consumer<ReportRequestCreatedConsumer>();
+                    e.Consumer<ReportRequestCreatedConsumer>(() => new ReportRequestCreatedConsumer(
+                        serviceProvider.GetService<IEnviBadApiExchanger>()));
                 });
             });
+
+            
 
             await busControl.StartAsync(new CancellationToken());
             try
