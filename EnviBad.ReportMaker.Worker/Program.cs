@@ -1,11 +1,15 @@
 ﻿using EnviBad.ReportMaker.Common.Models.Options;
 using EnviBad.ReportMaker.Core.MqConsumers;
+using EnviBad.ReportMaker.Core.ReportMakers;
+using EnviBad.ReportMaker.Infrastructure.Contexts;
 using EnviBad.ReportMaker.Infrastructure.Interfaces;
 using EnviBad.ReportMaker.Infrastructure.MicroserviceExchangers;
+using EnviBad.ReportMaker.Infrastructure.Repositories;
 using MassTransit;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using System;
+using Npgsql;
 
 namespace EnviBad.ReportMaker.Worker
 {
@@ -19,10 +23,23 @@ namespace EnviBad.ReportMaker.Worker
                 .AddJsonFile("appsettings.json", optional: false);
             IConfiguration config = builder.Build();
 
+
             ServiceCollection services = new ServiceCollection();
             services.Configure<EnviBadApiConnectionOptions>(config.GetSection("EnviBadApiConnection"));
             services.AddTransient<IEnviBadApiExchanger, EnviBadApiExchanger>();
+            services.AddTransient<ValuableGeoObjectsReportMaker, ValuableGeoObjectsReportMaker>();
             services.AddHttpClient();
+
+            string? connectionStr = config.GetConnectionString("EnviBadPostgres");
+            var dsBuilder = new NpgsqlDataSourceBuilder(connectionStr);
+            var dbDataSource = dsBuilder.Build();
+            services.AddDbContext<EnviBadReportContext>(options =>
+            {
+                options.UseNpgsql(dbDataSource);
+            });
+
+            services.AddScoped<IValuableGeoObjectRepo, ValuableGeoObjectRepo>();
+
             ServiceProvider serviceProvider = services.BuildServiceProvider();
 
             var rabbitSettings = config.GetSection("MassTransitOptions").Get<MassTransitOptions>();
@@ -37,12 +54,12 @@ namespace EnviBad.ReportMaker.Worker
 
                 cfg.ReceiveEndpoint("report-request-created-event", e =>
                 {
-                    e.Consumer<ReportRequestCreatedConsumer>(() => new ReportRequestCreatedConsumer(
-                        serviceProvider.GetService<IEnviBadApiExchanger>()));
+                    e.Consumer(() => new ReportRequestCreatedConsumer(
+                        serviceProvider.GetService<IEnviBadApiExchanger>(),
+                        serviceProvider.GetService<ValuableGeoObjectsReportMaker>()
+                    ));
                 });
             });
-
-            
 
             await busControl.StartAsync(new CancellationToken());
             try

@@ -1,10 +1,11 @@
 ﻿using EnviBad.ReportMaker.Common;
 using EnviBad.ReportMaker.Common.DTO;
+using EnviBad.ReportMaker.Common.Models;
+using EnviBad.ReportMaker.Core.ReportMakers;
 using EnviBad.ReportMaker.Infrastructure.Interfaces;
 using EnviBad.Shared.Models.MqMessages;
 using MassTransit;
 using Newtonsoft.Json;
-using static MassTransit.ValidationResultExtensions;
 
 namespace EnviBad.ReportMaker.Core.MqConsumers
 {
@@ -14,10 +15,13 @@ namespace EnviBad.ReportMaker.Core.MqConsumers
     public class ReportRequestCreatedConsumer : IConsumer<ReportRequestCreated>
     {
         private readonly IEnviBadApiExchanger _enviBadApiExchanger;
+        private readonly ValuableGeoObjectsReportMaker _reportMaker;
 
-        public ReportRequestCreatedConsumer(IEnviBadApiExchanger enviBadApiExchanger)
+        public ReportRequestCreatedConsumer(IEnviBadApiExchanger enviBadApiExchanger, 
+            ValuableGeoObjectsReportMaker reportMaker)
         {
             _enviBadApiExchanger = enviBadApiExchanger;
+            _reportMaker = reportMaker;
         }
 
         public async Task Consume(ConsumeContext<ReportRequestCreated> context)
@@ -25,15 +29,40 @@ namespace EnviBad.ReportMaker.Core.MqConsumers
             var jsonMessage = JsonConvert.SerializeObject(context.Message);
             Console.WriteLine($"Got ReportRequestCreated message: {jsonMessage}");
 
-            ReportRequestUpdateDto updParameters = new ReportRequestUpdateDto
+            EnviReportResult preparedReport = _reportMaker.GetReport(context.Message);
+            if (!string.IsNullOrEmpty(preparedReport?.ErrorMessage)) {
+                ReportRequestUpdateDto errorUpdParameters = getFailedReportUpdateMessage(context.Message, preparedReport);
+                await _enviBadApiExchanger.UpdateReportRequestAsync(errorUpdParameters);
+                return;
+            }
+
+            // TODO: Сохранение успешно созданного отчета в Mongo
+
+            ReportRequestUpdateDto updParameters = getSuccessfullReportUpdateMessage(context.Message);
+            await _enviBadApiExchanger.UpdateReportRequestAsync(updParameters);
+            Console.WriteLine($"Handled ReportRequestCreated message: {jsonMessage}");
+        }
+
+        private ReportRequestUpdateDto getFailedReportUpdateMessage(
+            ReportRequestCreated consumedMessage, EnviReportResult preparedReport)
+        {
+            return new ReportRequestUpdateDto
             {
-                ReportRequestId = context.Message.Id,
+                ReportRequestId = consumedMessage.Id,
+                Status = ReportStatus.Failed.ToString(),
+                ErrorDescription = preparedReport?.ErrorMessage,
+                ExecDuration = preparedReport?.CreationDurationSec
+            };
+        }
+
+        private ReportRequestUpdateDto getSuccessfullReportUpdateMessage(ReportRequestCreated consumedMessage)
+        {
+            return new ReportRequestUpdateDto
+            {
+                ReportRequestId = consumedMessage.Id,
                 Status = ReportStatus.Completed.ToString(),
                 ResultId = Guid.NewGuid().ToString() // TODO: Реальный ID результата из Mongo
             };
-
-            await _enviBadApiExchanger.UpdateReportRequestAsync(updParameters);
-            Console.WriteLine($"Handled ReportRequestCreated message: {jsonMessage}");
         }
     }
 }

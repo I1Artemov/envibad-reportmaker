@@ -1,4 +1,5 @@
 ﻿using EnviBad.ReportMaker.Common.Log;
+using EnviBad.ReportMaker.Infrastructure.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace EnviBad.ReportMaker.Infrastructure.Repositories
@@ -8,7 +9,7 @@ namespace EnviBad.ReportMaker.Infrastructure.Repositories
     /// </summary>
     /// <typeparam name="TEntity">Тип сущности</typeparam>
     /// <typeparam name="TContext">Контекст БД</typeparam>
-    public class EFRepo<TEntity, TContext> : IDisposable
+    public class EFRepo<TEntity, TContext> : IEFRepo<TEntity, TContext>
         where TEntity : class
         where TContext : DbContext
     {

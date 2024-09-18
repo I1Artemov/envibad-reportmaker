@@ -12,6 +12,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\EnviBad.ReportMaker.Common\EnviBad.ReportMaker.Common.csproj" />
+    <ProjectReference Include="..\EnviBad.ReportMaker.Infrastructure\EnviBad.ReportMaker.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

@@ -9,5 +9,6 @@
         public string? Status { get; set; }
         public string? ResultId { get; set; }
         public string? ErrorDescription { get; set; }
+        public double? ExecDuration { get; set; }
     }
 }

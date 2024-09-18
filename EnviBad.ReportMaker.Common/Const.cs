@@ -12,4 +12,11 @@
         Completed = 2,
         Failed = 3
     }
+
+    public enum InfluenceKind
+    {
+        GOOD = 0,
+        BAD = 1,
+        NEUTRAL = 2
+    }
 }
