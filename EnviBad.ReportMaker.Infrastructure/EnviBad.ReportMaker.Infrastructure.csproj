@@ -16,4 +16,8 @@
     <ProjectReference Include="..\EnviBad.ReportMaker.Common\EnviBad.ReportMaker.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Sql\" />
+  </ItemGroup>
+
 </Project>

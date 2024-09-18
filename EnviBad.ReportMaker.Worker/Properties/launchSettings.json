@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "EnviBad.ReportMaker.Worker": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

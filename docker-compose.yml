@@ -1,0 +1,31 @@
+version: '3.4'
+services:
+  envibad-report-pg-db:
+    image: postgres:12.14-alpine
+    restart: no
+    environment:
+      - TZ=UTC
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=12345
+    ports:
+      - '54318:5432'
+    networks:
+      - envibad-api-net
+    volumes:
+      - D:\docker_volumes\envibad_report_postgres:/var/lib/postgresql/data
+  envibad-report-worker:
+    build:
+      context: .
+      dockerfile: report.worker.Dockerfile
+    restart: no
+    environment:
+      - TZ=UTC
+    networks:
+      - envibad-api-net
+    depends_on:
+      - envibad-report-pg-db
+    
+networks:
+  envibad-api-net:
+    name: envibad_api_network
+    driver: bridge
