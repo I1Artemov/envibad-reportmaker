@@ -24,11 +24,16 @@ namespace EnviBad.ReportMaker.Core.MqConsumers
             _reportMaker = reportMaker;
         }
 
+        /// <summary>
+        /// Обработка запроса на формирование отчета по области, поступившего из RabbitMQ
+        /// </summary>
+        /// <param name="context">Сообщение с параметрами создания отчета (кто запросил, какая область, ...)</param>
         public async Task Consume(ConsumeContext<ReportRequestCreated> context)
         {
             var jsonMessage = JsonConvert.SerializeObject(context.Message);
             Console.WriteLine($"Got ReportRequestCreated message: {jsonMessage}");
 
+            // Подготовка отчета. Если не удалось - сообщаем ошибочный статус запроса через API
             EnviReportResult preparedReport = _reportMaker.GetReport(context.Message);
             if (!string.IsNullOrEmpty(preparedReport?.ErrorMessage)) {
                 ReportRequestUpdateDto errorUpdParameters = getFailedReportUpdateMessage(context.Message, preparedReport);
@@ -36,11 +41,19 @@ namespace EnviBad.ReportMaker.Core.MqConsumers
                 return;
             }
 
-            // TODO: Сохранение успешно созданного отчета в Mongo
+            // Сохранение успешно созданного отчета в базу данных
+            string? saveError = _reportMaker.SaveReportResultToDb(preparedReport);
+            if (!string.IsNullOrEmpty(saveError))
+            {
+                ReportRequestUpdateDto dbErrorParameters = getFailedReportUpdateMessage(context.Message, preparedReport);
+                await _enviBadApiExchanger.UpdateReportRequestAsync(dbErrorParameters);
+                Console.WriteLine($"Error saving report for message: {jsonMessage}");
+            }
 
-            ReportRequestUpdateDto updParameters = getSuccessfullReportUpdateMessage(context.Message);
+            // Если отчет удалось сформировать и сохранитб в БД, сообщаем успешный статус по API
+            ReportRequestUpdateDto updParameters = getSuccessfullReportUpdateMessage(context.Message, preparedReport);
             await _enviBadApiExchanger.UpdateReportRequestAsync(updParameters);
-            Console.WriteLine($"Handled ReportRequestCreated message: {jsonMessage}");
+            Console.WriteLine($"Successfully handled ReportRequestCreated message: {jsonMessage}");
         }
 
         private ReportRequestUpdateDto getFailedReportUpdateMessage(
@@ -55,13 +68,15 @@ namespace EnviBad.ReportMaker.Core.MqConsumers
             };
         }
 
-        private ReportRequestUpdateDto getSuccessfullReportUpdateMessage(ReportRequestCreated consumedMessage)
+        private ReportRequestUpdateDto getSuccessfullReportUpdateMessage(
+            ReportRequestCreated consumedMessage, EnviReportResult preparedReport)
         {
             return new ReportRequestUpdateDto
             {
                 ReportRequestId = consumedMessage.Id,
                 Status = ReportStatus.Completed.ToString(),
-                ResultId = Guid.NewGuid().ToString() // TODO: Реальный ID результата из Mongo
+                ResultId = preparedReport.Id?.ToString(),
+                ExecDuration = preparedReport?.CreationDurationSec
             };
         }
     }

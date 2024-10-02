@@ -1,8 +1,10 @@
 ﻿using EnviBad.ReportMaker.Common;
 using EnviBad.ReportMaker.Common.Models;
+using EnviBad.ReportMaker.Core.Helpers;
 using EnviBad.ReportMaker.Core.Interfaces;
 using EnviBad.ReportMaker.Infrastructure.Interfaces;
 using EnviBad.Shared.Models.MqMessages;
+using Newtonsoft.Json;
 
 namespace EnviBad.ReportMaker.Core.ReportMakers
 {
@@ -12,11 +14,21 @@ namespace EnviBad.ReportMaker.Core.ReportMakers
     public class ValuableGeoObjectsReportMaker : IEnviReportMaker
     {
         private readonly IValuableGeoObjectRepo _geoObjectsRepo;
+        private readonly IEnviReportResultRepo _enviReportResultRepo;
 
 
-        public ValuableGeoObjectsReportMaker(IValuableGeoObjectRepo geoObjectsRepo)
+        public ValuableGeoObjectsReportMaker(IValuableGeoObjectRepo geoObjectsRepo, IEnviReportResultRepo enviReportResultRepo)
         {
             _geoObjectsRepo = geoObjectsRepo;
+            _enviReportResultRepo = enviReportResultRepo;
+        }
+
+        /// <inheritdoc />
+        public string? SaveReportResultToDb(EnviReportResult reportResult)
+        {
+            _enviReportResultRepo.Add(reportResult);
+            // TODO: Логгирование
+            return _enviReportResultRepo.Save(null, $"Saving EnviReportResult with id {reportResult.Id}");
         }
 
         /// <inheritdoc />
@@ -26,11 +38,13 @@ namespace EnviBad.ReportMaker.Core.ReportMakers
             if (reportParams.CenterLat == null || reportParams.CenterLong == null || reportParams.AreaRadius == null)
                 return new EnviReportResult {ErrorMessage = "Не заданы координаты или радиус области"};
             // TODO: Переделать на поиск в радиусе
-            double minLat = reportParams.CenterLat.Value - reportParams.AreaRadius.Value;
-            double maxLat = reportParams.CenterLat.Value + reportParams.AreaRadius.Value;
-            double minLong = reportParams.CenterLong.Value - reportParams.AreaRadius.Value;
-            double maxLong = reportParams.CenterLong.Value + reportParams.AreaRadius.Value;
-            List<ValuableGeoObject> valuableObjectsInArea = null;
+            double minLat = GeoUtils.AddMetersToLat(reportParams.CenterLat.Value, -reportParams.AreaRadius.Value);
+            double maxLat = GeoUtils.AddMetersToLat(reportParams.CenterLat.Value, reportParams.AreaRadius.Value);
+            double minLong = GeoUtils.AddMetersToLong(
+                reportParams.CenterLong.Value, - reportParams.AreaRadius.Value, reportParams.CenterLat.Value);
+            double maxLong = GeoUtils.AddMetersToLong(
+                reportParams.CenterLong.Value, reportParams.AreaRadius.Value, reportParams.CenterLat.Value);
+            List<ValuableGeoObject> valuableObjectsInArea = new List<ValuableGeoObject>();
             try
             {
                 valuableObjectsInArea = _geoObjectsRepo.GetAllWithoutTracking()
@@ -54,6 +68,7 @@ namespace EnviBad.ReportMaker.Core.ReportMakers
                 NeutralFactorsCount = neutralFactorsCount,
                 FoundValuableObjects = valuableObjectsInArea,
                 CreationDurationSec = execDuration,
+                FoundObjectsJson = JsonConvert.SerializeObject(valuableObjectsInArea)
             };
         }
     }

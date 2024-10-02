@@ -30,7 +30,7 @@ namespace EnviBad.ReportMaker.Worker
             services.AddTransient<ValuableGeoObjectsReportMaker, ValuableGeoObjectsReportMaker>();
             services.AddHttpClient();
 
-            string? connectionStr = config.GetConnectionString("EnviBadPostgres");
+            string? connectionStr = config.GetConnectionString("EnviBadReportPg");
             var dsBuilder = new NpgsqlDataSourceBuilder(connectionStr);
             var dbDataSource = dsBuilder.Build();
             services.AddDbContext<EnviBadReportContext>(options =>
@@ -39,13 +39,13 @@ namespace EnviBad.ReportMaker.Worker
             });
 
             services.AddScoped<IValuableGeoObjectRepo, ValuableGeoObjectRepo>();
+            services.AddScoped<IEnviReportResultRepo, EnviReportResultRepo>();
 
             ServiceProvider serviceProvider = services.BuildServiceProvider();
 
             var rabbitSettings = config.GetSection("MassTransitOptions").Get<MassTransitOptions>();
             IBusControl busControl = Bus.Factory.CreateUsingRabbitMq(cfg =>
             {
-                // TODO: Get from options
                 cfg.Host(rabbitSettings?.RabbitHost, rabbitSettings?.RabbitPort ?? 5672, "/envibad", h =>
                 {
                     h.Username(rabbitSettings?.RabbitUser ?? "guest");
@@ -62,6 +62,7 @@ namespace EnviBad.ReportMaker.Worker
             });
 
             await busControl.StartAsync(new CancellationToken());
+            AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
             try
             {
                 Console.WriteLine("Press enter to exit");

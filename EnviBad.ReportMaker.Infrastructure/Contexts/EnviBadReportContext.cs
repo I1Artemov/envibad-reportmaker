@@ -9,6 +9,7 @@ namespace EnviBad.ReportMaker.Infrastructure.Contexts
         { }
 
         public DbSet<ValuableGeoObject> ValuableGeoObjects { get; set; }
+        public DbSet<EnviReportResult> EnviReportResults { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

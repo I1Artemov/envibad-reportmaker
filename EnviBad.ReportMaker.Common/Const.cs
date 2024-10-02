@@ -2,7 +2,7 @@
 {
     public class Const
     {
-
+        public const string AppVersion = "1.0.1.0";
     }
 
     public enum ReportStatus
